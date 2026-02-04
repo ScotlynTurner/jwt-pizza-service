@@ -25,7 +25,7 @@ beforeAll(async () => {
   adminToken = adminLogin.body.token;
 
   // Create franchise as admin
-  res = await request(app)
+  const res = await request(app)
     .post('/api/franchise')
     .set('Authorization', `Bearer ${adminToken}`)
     .send({

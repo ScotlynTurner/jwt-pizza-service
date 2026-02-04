@@ -11,14 +11,14 @@ let store;
 
 beforeAll(async () => {
   // Create a diner user
-  const dinerUser = await createDinerUser();
+  dinerUser = await createDinerUser();
   const dinerRes = await request(app)
     .post('/api/auth')
     .send(dinerUser);
   dinerToken = dinerRes.body.token;
 
   // Create admin and login
-  const adminUser = await createAdminUser();
+  adminUser = await createAdminUser();
   const adminLogin = await request(app)
     .put('/api/auth')
     .send(adminUser);

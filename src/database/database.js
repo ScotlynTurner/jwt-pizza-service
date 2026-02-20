@@ -7,6 +7,24 @@ const dbModel = require('./dbModel.js');
 class DB {
   constructor() {
     this.initialized = this.initializeDatabase();
+    this.ensureAdminUser();
+  }
+
+  async ensureAdminUser() {
+    const adminEmail = 'a@jwt.com';
+    const admin = await this.getUser(adminEmail, "admin");
+  
+    if (!admin) {
+      console.log('No admin user found');
+      return;
+    }
+  
+    const roles = admin.roles || [];
+  
+    if (!roles.some((r) => r.role === 'admin')) {
+      console.log('Adding admin role...');
+      admin.roles.push({ role: 'admin' });
+    }
   }
 
   async getMenu() {

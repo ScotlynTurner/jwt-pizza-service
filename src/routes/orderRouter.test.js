@@ -100,7 +100,7 @@ test('get a user\'s orders', async () => {
     ],
   };
 
-await request(app)
+  await request(app)
     .post('/api/order')
     .set('Authorization', `Bearer ${dinerToken}`)
     .send(order);

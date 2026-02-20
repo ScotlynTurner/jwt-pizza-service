@@ -103,6 +103,7 @@ test('list users unauthorized', async () => {
 
 test('list users', async () => {
   const [user, userToken] = await registerUser(request(app));
+  console.log('Registered user:', user);
   const listUsersRes = await request(app)
     .get('/api/user')
     .set('Authorization', 'Bearer ' + userToken);

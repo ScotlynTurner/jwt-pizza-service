@@ -28,7 +28,7 @@ afterAll(async () => {
     .delete(`/api/user/${adminUser.id}`)
     .set('Authorization', `Bearer ${adminToken}`);
   
-    await request(app)
+  await request(app)
     .delete(`/api/user/${dinerUser.id}`)
     .set('Authorization', `Bearer ${adminToken}`);
 });

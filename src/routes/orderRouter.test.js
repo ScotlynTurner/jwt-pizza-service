@@ -14,12 +14,12 @@ beforeAll(async () => {
     .send({ email: admin.email, password: admin.password });
   adminToken = adminLogin.body.token;
 
-  // Create a diner user
+  // Create a diner user and login
   const diner = await createDinerUser();
-  const dinerRes = await request(app)
-    .post('/api/auth')
-    .send(diner);
-  dinerToken = dinerRes.body.token;
+  const dinerLogin = await request(app)
+    .put('/api/auth')
+    .send({ email: diner.email, password: diner.password });
+  dinerToken = dinerLogin.body.token;
 });
 
 // ------------------------
@@ -78,11 +78,18 @@ test('allow admin to add menu item', async () => {
 // ------------------------
 // PUT /menu (non-admin)
 // ------------------------
-test('don\'t allow admin to add menu item', async () => {
+test('don\'t allow non-admin to add menu item', async () => {
+  const item = {
+    title: 'Bad Pizza',
+    description: 'Test Desc',
+    image: 'test.png',
+    price: 0.01,
+  };
+
   const res = await request(app)
     .put('/api/order/menu')
     .set('Authorization', `Bearer ${dinerToken}`)
-    .send({ title: 'Bad Pizza' });
+    .send(item);
 
   expect(res.status).toBe(403);
 });

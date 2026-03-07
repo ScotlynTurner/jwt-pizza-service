@@ -15,24 +15,13 @@ beforeAll(async () => {
     .send({ email: adminUser.email, password: adminUser.password });
   adminToken = adminLoginRes.body.token;
 
-  // Create a regular diner user
-  dinerUser = await createDinerUser();
-  const dinerRes = await request(app)
-    .post('/api/auth')
-    .send(dinerUser);
-  dinerToken = dinerRes.body.token;
+  // Create a diner user and login
+  const diner = await createDinerUser();
+  const dinerLogin = await request(app)
+    .put('/api/auth')
+    .send({ email: diner.email, password: diner.password });
+  dinerToken = dinerLogin.body.token;
 });
-
-afterAll(async () => {
-  await request(app)
-    .delete(`/api/user/${adminUser.id}`)
-    .set('Authorization', `Bearer ${adminToken}`);
-  
-  await request(app)
-    .delete(`/api/user/${dinerUser.id}`)
-    .set('Authorization', `Bearer ${adminToken}`);
-});
-
 
 // ------------------------
 // GET /me
@@ -89,7 +78,7 @@ test('delete user', async () => {
     .set('Authorization', `Bearer ${adminToken}`);
 
   expect(res.status).toBe(200);
-  expect(res.body.message).toBe('not implemented');
+  expect(res.body.message).toBe('user deleted');
 });
 
 

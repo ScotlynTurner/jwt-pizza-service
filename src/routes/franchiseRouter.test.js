@@ -10,19 +10,19 @@ let franchise;
 let store;
 
 beforeAll(async () => {
-  // Create a diner user
-  dinerUser = await createDinerUser();
-  const dinerRes = await request(app)
-    .post('/api/auth')
-    .send(dinerUser);
-  dinerToken = dinerRes.body.token;
-
   // Create admin and login
-  adminUser = await createAdminUser();
+  const adminUser = await createAdminUser();
   const adminLogin = await request(app)
     .put('/api/auth')
-    .send(adminUser);
+    .send({ email: adminUser.email, password: adminUser.password });
   adminToken = adminLogin.body.token;
+
+  // Create a diner user and login
+  const dinerUser = await createDinerUser();
+  const dinerLogin = await request(app)
+    .put('/api/auth')
+    .send({ email: dinerUser.email, password: dinerUser.password });
+  dinerToken = dinerLogin.body.token;
 
   // Create franchise as admin
   const res = await request(app)

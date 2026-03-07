@@ -1,17 +1,14 @@
 // test/testUtils.js
 const { DB } = require('../database/database'); // adapt path
 
-async function createAdminUser() {
-  const email = process.env.TEST_ADMIN_EMAIL || 'a@jwt.com';
-  const name = 'Test Admin';
-  const password = process.env.TEST_ADMIN_PW || 'admin';
+function randomName() {
+    return Math.random().toString(36).substring(2, 12);
+}
 
-  // Try find first
-  let user = await DB.getUser(email, password);
-  if (user) {
-    console.log('[createAdminUser] existing admin id=' + user.id);
-    return { ...user, password }; // return password so tests can login
-  }
+async function createAdminUser() {
+  const name = randomName();
+  const email = 'admin-' + name + '@jwt.com';
+  const password = 'admin';
 
   // Create user (wrap to handle race unique-violation)
   try {
@@ -28,11 +25,22 @@ async function createAdminUser() {
 }
 
 async function createDinerUser() {
-  const email = `diner+${Date.now()}@test.com`; // unique per call to avoid collisions
-  const name = 'Test Diner';
+  const name = randomName();
+  const email = 'diner-' + name + '@test.com'; // unique per call to avoid collisions
   const password = 'a';
   const user = await DB.addUser({ name, email, password, roles: ['diner'] });
   return { ...user, password };
+}
+
+async function createMenuItem() {
+  const item = {
+    title: randomName(),
+    description: 'Test Desc',
+    image: 'test.png',
+    price: 0.01,
+  };
+  const menu = await DB.addMenuItem(item);
+  return menu[menu.length - 1]; // return the item we just added
 }
 
 module.exports = { createAdminUser, createDinerUser };

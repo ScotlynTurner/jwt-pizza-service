@@ -84,7 +84,7 @@ setInterval(() => {
   metrics.push(createMetric('revenue_total', revenueTotalAmount, 'usd', 'sum', 'asDouble', {}));
 
   // failures by reason
-  Object.entries(pizzaFailureCounts).forEach(([reason, count]) => {
+  Object.entries(pizzaFailureCount).forEach(([reason, count]) => {
     metrics.push(createMetric('pizza_creation_failures', count, '1', 'sum', 'asInt', { reason }));
   });
 

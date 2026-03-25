@@ -5,6 +5,8 @@ const franchiseRouter = require('./routes/franchiseRouter.js');
 const userRouter = require('./routes/userRouter.js');
 const version = require('./version.json');
 const config = require('./config.js');
+const metrics = require('./metrics');
+const Logger = require('pizza-logger')
 
 const app = express();
 app.use(express.json());
@@ -18,11 +20,12 @@ app.use((req, res, next) => {
 });
 
 const apiRouter = express.Router();
-app.use('/api', apiRouter);
-apiRouter.use('/auth', authRouter);
-apiRouter.use('/user', userRouter);
-apiRouter.use('/order', orderRouter);
-apiRouter.use('/franchise', franchiseRouter);
+app.use(metrics.requestTracker);
+app.use('/api', metrics.requestTracker, apiRouter);
+apiRouter.use('/auth', metrics.requestTracker, authRouter);
+apiRouter.use('/user', metrics.requestTracker, userRouter);
+apiRouter.use('/order', metrics.requestTracker, orderRouter);
+apiRouter.use('/franchise', metrics.requestTracker, franchiseRouter);
 
 apiRouter.use('/docs', (req, res) => {
   res.json({
@@ -51,6 +54,10 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.use(metrics.requestTracker);
+const logger = new Logger(config)
+app.use(logger.httpLogger);
+app.use(logger.dbLogger);
+app.use(logger.factoryLogger);
+app.use(logger.unhandledErrorLogger);
 
 module.exports = app;

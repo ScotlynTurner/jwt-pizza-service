@@ -1,153 +1,167 @@
-// src/metrics.js
-const client = require('prom-client');
+const { get } = require('http');
+const config = require('./config');
 const os = require('os');
 
-// Register & default metrics (node process metrics)
-const register = client.register;
-client.collectDefaultMetrics({ register });
+// http requests
+const requests = {};
 
-// --- Metrics (minimal set) ---
-const httpRequests = new client.Counter({
-  name: 'http_requests_total',
-  help: 'Total HTTP requests',
-  labelNames: ['method', 'endpoint'],
-});
-
-const totalRequests = new client.Counter({
-  name: 'total_requests_total',
-  help: 'Total requests (all methods)',
-});
-
-const activeUsers = new client.Gauge({
-  name: 'active_users',
-  help: 'Number of active users',
-});
-
-const authAttempts = new client.Counter({
-  name: 'auth_attempts_total',
-  help: 'Authentication attempts',
-  labelNames: ['result'], // result = success|failed
-});
-
-const pizzasSold = new client.Counter({
-  name: 'pizzas_sold_total',
-  help: 'Total pizzas sold',
-});
-
-const revenueTotal = new client.Counter({
-  name: 'pizzas_revenue_total',
-  help: 'Total revenue (currency units)',
-});
-
-const pizzaCreationFailures = new client.Counter({
-  name: 'pizza_creation_failures_total',
-  help: 'Total pizza creation failures',
-});
-
-const pizzaCreationLatency = new client.Histogram({
-  name: 'pizza_creation_latency_seconds',
-  help: 'Latency for pizza creation (seconds)',
-  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5],
-});
-
-// Optional system gauges (sampled)
-const cpuUsage = new client.Gauge({ name: 'cpu_usage_percent', help: 'Approx CPU %' });
-const memoryUsage = new client.Gauge({ name: 'memory_usage_percent', help: 'Memory %' });
-
-// --- Middleware & helpers ---
-
-// Middleware: count requests and attach start time
 function requestTracker(req, res, next) {
-  const method = (req.method || 'UNKNOWN').toUpperCase();
-  // Use route path if present (better grouping), fallback to req.path
-  const endpoint = (req.route && req.route.path) || req.path || req.url || 'unknown';
-  httpRequests.inc({ method, endpoint }, 1);
-  totalRequests.inc(1);
-  req._metric_start = Date.now();
+  const endpoint = `[${req.method}] ${req.path}`;
+  requests[endpoint] = (requests[endpoint] || 0) + 1;
   next();
 }
 
-// authAttempt(successBool)
-function authAttempt(success) {
-  const label = success ? 'success' : 'failed';
-  authAttempts.inc({ result: label }, 1);
+// latency tracking
+let requestLatency = [];
+let pizzaLatency = [];
+
+function recordRequestLatency(ms, endpoint = '/') {
+  requestLatency.push({ value: ms, endpoint });
 }
+
+function recordPizzaCreationLatency(ms, endpoint = '/') {
+  pizzaLatency.push({ value: ms, endpoint });
+}
+
+// auth attempts
+let authSuccessCount = 0;
+let authFailCount = 0;
+
+function authSuccessAdd() { authSuccessCount++; }
+function authFailAdd() { authFailCount++; }
 
 // active users
-function activeUserAdd() { activeUsers.inc(1); }
-function activeUserRemove() { activeUsers.dec(1); }
+let activeUsersCount = 0;
 
-// pizzas sold (pass revenue number)
-function pizzaSold(revenue = 0) {
-  pizzasSold.inc(1);
-  if (Number.isFinite(revenue)) revenueTotal.inc(Number(revenue));
+function activeUserAdd() { activeUsersCount++; }
+function activeUserRemove() { activeUsersCount--; }
+
+// pizza creation
+let pizzasSoldCount = 0;
+let pizzaFailureCount = 0;
+let revenueTotalAmount = 0;
+
+function pizzaCreationFailed(reason = 'unknown') {
+  pizzaFailureCount[reason] = (pizzaFailureCount[reason] || 0) + 1;
 }
 
-// pizza creation failure
-function pizzaCreationFailed() { pizzaCreationFailures.inc(1); }
-
-// record pizza creation latency in ms
-function recordPizzaCreationLatency(ms) {
-  if (ms == null) return;
-  pizzaCreationLatency.observe(Number(ms) / 1000); // histogram is in seconds
-}
-
-// sample CPU & memory immediately (call before scrape or periodically)
-function sampleSystemMetrics() {
-  const cpus = (os.cpus() || []).length || 1;
-  const load = os.loadavg()[0];
-  const cpuPercent = Number(((load / cpus) * 100).toFixed(2));
-  cpuUsage.set(cpuPercent);
-
-  const total = os.totalmem();
-  const free = os.freemem();
-  const used = total - free;
-  const memPercent = Number(((used / total) * 100).toFixed(2));
-  memoryUsage.set(memPercent);
-}
-
-// Express handler for Prometheus scrape
-async function metricsEndpoint(req, res) {
-  try {
-    sampleSystemMetrics(); // ensure cpu/mem are fresh
-    res.set('Content-Type', register.contentType);
-    res.end(await register.metrics());
-  } catch (err) {
-    res.status(500).end(err.message);
+function pizzaPurchase(success, latency, price = 0) {
+  recordRequestLatency(latency, '/orderRouter.');
+  if (success) {
+    revenueTotalAmount += Number(price) || 0;
+    pizzasSoldCount++;
+  } else {
+    pizzaFailureCount++;
   }
 }
 
-// optional sampler control
-let samplerHandle = null;
-function startSampler(intervalMs = 10000) {
-  if (samplerHandle) return;
-  samplerHandle = setInterval(sampleSystemMetrics, intervalMs);
-}
-function stopSampler() {
-  if (!samplerHandle) return;
-  clearInterval(samplerHandle);
-  samplerHandle = null;
+// cpu and memory usage
+function getCpuUsagePercentage() {
+  const cpuUsage = os.loadavg()[0] / os.cpus().length;
+  return cpuUsage.toFixed(2) * 100;
 }
 
-// exports
+function getMemoryUsagePercentage() {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = totalMemory - freeMemory;
+  const memoryUsage = (usedMemory / totalMemory) * 100;
+  return memoryUsage.toFixed(2);
+}
+
+// This will periodically send metrics to Grafana
+setInterval(() => {
+  const metrics = [];
+  Object.entries(requests).forEach(([key, count]) => {
+    const [method, path] = key.split('|');
+
+    metrics.push(createMetric('http_requests_total', count, '1', 'sum', 'asInt', { method, path }));
+  });
+
+  metrics.push(createMetric('active_users', activeUsersCount, '1', 'gauge', 'asInt', {}));
+  metrics.push(createMetric('auth_attempts', authSuccessCount, '1', 'sum', 'asInt', { result: 'success' }));
+  metrics.push(createMetric('auth_attempts', authFailCount, '1', 'sum', 'asInt', { result: 'failed' }));
+  metrics.push(createMetric('pizzas_sold_total', pizzasSoldCount, '1', 'sum', 'asInt', {}));
+  metrics.push(createMetric('revenue_total', revenueTotalAmount, 'usd', 'sum', 'asDouble', {}));
+
+  // failures by reason
+  Object.entries(pizzaFailureCounts).forEach(([reason, count]) => {
+    metrics.push(createMetric('pizza_creation_failures', count, '1', 'sum', 'asInt', { reason }));
+  });
+
+  pizzaLatency.forEach((entry) => {
+    metrics.push(createMetric('pizza_creation_latency', entry.value / 1000, 's', 'gauge', 'asDouble', { endpoint: entry.endpoint }));
+  });
+
+  sendMetricToGrafana(metrics);
+}, 10000);
+
+function createMetric(metricName, metricValue, metricUnit, metricType, valueType, attributes) {
+  attributes = { ...attributes, source: config.source };
+
+  const metric = {
+    name: metricName,
+    unit: metricUnit,
+    [metricType]: {
+      dataPoints: [
+        {
+          [valueType]: metricValue,
+          timeUnixNano: Date.now() * 1000000,
+          attributes: [],
+        },
+      ],
+    },
+  };
+
+  Object.keys(attributes).forEach((key) => {
+    metric[metricType].dataPoints[0].attributes.push({
+      key: key,
+      value: { stringValue: attributes[key] },
+    });
+  });
+
+  if (metricType === 'sum') {
+    metric[metricType].aggregationTemporality = 'AGGREGATION_TEMPORALITY_CUMULATIVE';
+    metric[metricType].isMonotonic = true;
+  }
+
+  return metric;
+}
+
+function sendMetricToGrafana(metrics) {
+  const body = {
+    resourceMetrics: [
+      {
+        scopeMetrics: [
+          {
+            metrics,
+          },
+        ],
+      },
+    ],
+  };
+
+  fetch(`${config.endpointUrl}`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { Authorization: `Bearer ${config.accountId}:${config.apiKey}`, 'Content-Type': 'application/json' },
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP status: ${response.status}`);
+      }
+    })
+    .catch((error) => {
+      console.error('Error pushing metrics:', error);
+    });
+}
+
 module.exports = {
-  // middleware & endpoint
+  getCpuUsagePercentage,
+  getMemoryUsagePercentage,
   requestTracker,
-  metricsEndpoint,
-
-  // helpers
-  authAttempt,
   activeUserAdd,
   activeUserRemove,
-  pizzaSold,
   pizzaCreationFailed,
-  recordPizzaCreationLatency,
-
-  // system
-  sampleSystemMetrics,
-  startSampler,
-  stopSampler,
-
-  // for debug/tests
-  register,
+  recordPizzaCreationLatency
 };

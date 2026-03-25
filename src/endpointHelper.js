@@ -1,7 +1,9 @@
+const Logger = require('pizza-logger')
+
 class StatusCodeError extends Error {
   constructor(message, statusCode) {
     super(message);
-    logger.unhandledErrorLogger(this);
+    Logger.unhandledErrorLogger(this);
     this.statusCode = statusCode;
   }
 }

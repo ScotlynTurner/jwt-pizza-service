@@ -1,4 +1,3 @@
-const { get } = require('http');
 const config = require('./config');
 const os = require('os');
 
@@ -27,8 +26,8 @@ function recordPizzaCreationLatency(ms, endpoint = '/') {
 let authSuccessCount = 0;
 let authFailCount = 0;
 
-function authSuccessAdd() { authSuccessCount++; }
-function authFailAdd() { authFailCount++; }
+// function authSuccessAdd() { authSuccessCount++; }
+// function authFailAdd() { authFailCount++; }
 
 // active users
 let activeUsersCount = 0;
@@ -45,15 +44,15 @@ function pizzaCreationFailed(reason = 'unknown') {
   pizzaFailureCount[reason] = (pizzaFailureCount[reason] || 0) + 1;
 }
 
-function pizzaPurchase(success, latency, price = 0) {
-  recordRequestLatency(latency, '/orderRouter.');
-  if (success) {
-    revenueTotalAmount += Number(price) || 0;
-    pizzasSoldCount++;
-  } else {
-    pizzaFailureCount++;
-  }
-}
+// function pizzaPurchase(success, latency, price = 0) {
+//   recordRequestLatency(latency, '/orderRouter.');
+//   if (success) {
+//     revenueTotalAmount += Number(price) || 0;
+//     pizzasSoldCount++;
+//   } else {
+//     pizzaFailureCount++;
+//   }
+// }
 
 // cpu and memory usage
 function getCpuUsagePercentage() {

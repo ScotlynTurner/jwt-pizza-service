@@ -56,8 +56,5 @@ app.use((err, req, res, next) => {
 
 const logger = new Logger(config)
 app.use(logger.httpLogger);
-app.use(logger.dbLogger);
-app.use(logger.factoryLogger);
-app.use(logger.unhandledErrorLogger);
 
-module.exports = app;
+module.exports = app, logger;

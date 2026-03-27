@@ -3,9 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config.js');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
-const Logger = require('pizza-logger')
-
-const logger = new Logger(config)
+const logger = require('../service.js')
 
 const authRouter = express.Router();
 

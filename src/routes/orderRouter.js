@@ -74,88 +74,35 @@ orderRouter.get(
   })
 );
 
-
+// createOrder
 orderRouter.post(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    const overallStart = process.hrtime.bigint();
+    const start = process.hrtime.bigint();
 
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
+    const orderInfo = { diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order };
+    logger.factoryLogger(orderInfo);
+    
+    const r = await fetch(`${config.factory.url}/api/order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
+      body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
+    });
+    
+    const latency = Number(process.hrtime.bigint() - start) / 1_000_000;
 
-    const orderInfo = {
-      diner: { id: req.user.id, name: req.user.name, email: req.user.email },
-      order,
-    };
-
-    const factoryStart = process.hrtime.bigint();
-
-    let r;
-    let responseText = '';
-    let factoryBody = null;
-
-    try {
-      r = await fetch(`${config.factory.url}/api/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          authorization: `Bearer ${config.factory.apiKey}`,
-          'x-correlation-id': req.headers['x-correlation-id'] || crypto.randomUUID(),
-        },
-        body: JSON.stringify(orderInfo),
-      });
-
-      responseText = await r.text();
-      factoryBody = responseText ? JSON.parse(responseText) : null;
-    } catch (err) {
-      const factoryLatency = Number(process.hrtime.bigint() - factoryStart) / 1_000_000;
-      const totalLatency = Number(process.hrtime.bigint() - overallStart) / 1_000_000;
-
-      // metrics.pizzaPurchase(false, totalLatency, 0);
-      // logger.error({
-      //   msg: 'Factory call failed',
-      //   err: String(err),
-      //   factoryLatency,
-      //   totalLatency,
-      //   orderId: order.id,
-      // });
-
-      console.error('Factory call failed', { err: String(err), factoryLatency, totalLatency, orderId: order.id });
-
-      return res.status(502).send({
-        message: 'Failed to reach factory',
-      });
-    }
-
+    const j = await r.json();
     if (r.ok) {
       const price = order.items?.reduce((sum, item) => sum + Number(item.price || 0), 0) || 0;
-      metrics.pizzaPurchase(true, totalLatency, price);
-
-      res.send({
-        order,
-        followLinkToEndChaos: factoryBody?.reportUrl,
-        jwt: factoryBody?.jwt,
-      });
+      metrics.pizzaPurchase(true, latency, price);
+      res.send({ order, followLinkToEndChaos: j.reportUrl, jwt: j.jwt });
     } else {
-      metrics.pizzaPurchase(false, totalLatency, 0);
-
-      // logger.warn({
-      //   msg: 'Factory returned error',
-      //   status: r.status,
-      //   statusText: r.statusText,
-      //   body: responseText.slice(0, 1000),
-      //   factoryLatency,
-      //   totalLatency,
-      //   orderId: order.id,
-      // });
-
-      console.log('Factory returned error', { status: r.status, statusText: r.statusText, body: responseText.slice(0, 1000), totalLatency, orderId: order.id });
-
-      res.status(502).send({
-        message: 'Failed to fulfill order at factory',
-        followLinkToEndChaos: factoryBody?.reportUrl,
-      });
+      console.log('Factory failed to fulfill order', j);
+      metrics.pizzaPurchase(false, latency, 0);
+      res.status(500).send({ message: 'Failed to fulfill order at factory', followLinkToEndChaos: j.reportUrl });
     }
   })
 );

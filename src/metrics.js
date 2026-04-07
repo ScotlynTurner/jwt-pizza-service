@@ -11,12 +11,12 @@ function requestTracker(req, res, next) {
 }
 
 // latency tracking
-// let requestLatency = [];
+let requestLatency = [];
 let pizzaLatency = [];
 
-// function recordRequestLatency(ms, endpoint = '/') {
-//   requestLatency.push({ value: ms, endpoint });
-// }
+function recordRequestLatency(ms, endpoint = '/') {
+  requestLatency.push({ value: ms, endpoint });
+}
 
 function recordPizzaCreationLatency(ms, endpoint = '/') {
   pizzaLatency.push({ value: ms, endpoint });

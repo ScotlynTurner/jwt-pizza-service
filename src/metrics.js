@@ -44,15 +44,15 @@ function pizzaCreationFailed(reason = 'unknown') {
   pizzaFailureCount[reason] = (pizzaFailureCount[reason] || 0) + 1;
 }
 
-// function pizzaPurchase(success, latency, price = 0) {
-//   recordRequestLatency(latency, '/orderRouter.');
-//   if (success) {
-//     revenueTotalAmount += Number(price) || 0;
-//     pizzasSoldCount++;
-//   } else {
-//     pizzaFailureCount++;
-//   }
-// }
+function pizzaPurchase(success, latency, price = 0) {
+  recordRequestLatency(latency, '/orderRouter.');
+  if (success) {
+    revenueTotalAmount += Number(price) || 0;
+    pizzasSoldCount++;
+  } else {
+    pizzaFailureCount++;
+  }
+}
 
 // cpu and memory usage
 function getCpuUsagePercentage() {
@@ -162,5 +162,6 @@ module.exports = {
   activeUserAdd,
   activeUserRemove,
   pizzaCreationFailed,
-  recordPizzaCreationLatency
+  recordPizzaCreationLatency,
+  pizzaPurchase
 };

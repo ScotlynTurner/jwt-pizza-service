@@ -57,3 +57,4 @@ app.use((err, req, res, next) => {
 app.use(logger.httpLogger);
 
 module.exports = app;
+

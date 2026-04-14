@@ -83,6 +83,15 @@ orderRouter.post(
 
     const orderReq = req.body;
     const order = await DB.addDinerOrder(req.user, orderReq);
+    for (const item of order.items) {
+      const menuItem = await DB.getMenuItemById(item.menuId);
+
+      if (!menuItem) {
+        return res.status(400).send({ message: 'Invalid menu item' });
+      }
+
+      item.price = menuItem.price;
+    }
     const orderInfo = { diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order };
     logger.factoryLogger(orderInfo);
     

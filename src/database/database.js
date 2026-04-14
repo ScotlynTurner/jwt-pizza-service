@@ -436,6 +436,15 @@ class DB {
     const [rows] = await connection.execute(`SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, [config.db.connection.database]);
     return rows.length > 0;
   }
+
+  async getMenuItemById(menuId) {
+    const result = await db.query(
+      'SELECT id, description, price FROM menu WHERE id = ?',
+      [menuId]
+    );
+
+    return result[0];
+  }
 }
 
 const db = new DB();

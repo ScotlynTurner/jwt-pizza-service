@@ -58,6 +58,7 @@ franchiseRouter.docs = [
 // getFranchises
 franchiseRouter.get(
   '/',
+  authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const [franchises, more] = await DB.getFranchises(req.user, req.query.page, req.query.limit, req.query.name);
     res.json({ franchises, more });
@@ -88,7 +89,17 @@ franchiseRouter.post(
       throw new StatusCodeError('unable to create a franchise', 403);
     }
 
-    const franchise = req.body;
+    const { name } = req.body;
+    if (!name || typeof name !== 'string') {
+      return res.status(400).send({ message: 'Invalid franchise name' });
+    }
+
+    // force admin to be the current user only
+    const franchise = {
+      name,
+      admins: [{ email: req.user.email }]
+    };
+
     res.send(await DB.createFranchise(franchise));
   })
 );
@@ -96,6 +107,7 @@ franchiseRouter.post(
 // deleteFranchise
 franchiseRouter.delete(
   '/:franchiseId',
+  authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
     const franchiseId = Number(req.params.franchiseId);
     await DB.deleteFranchise(franchiseId);

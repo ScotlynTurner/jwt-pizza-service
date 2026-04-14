@@ -100,7 +100,9 @@ franchiseRouter.post(
       admins: [{ email: req.user.email }]
     };
 
-    res.send(await DB.createFranchise(franchise));
+    const createdFranchise = await DB.createFranchise(franchise)
+
+    res.send(createdFranchise);
   })
 );
 
